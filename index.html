@@ -1,0 +1,2026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VehicleCarbon — Emission Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0a0e1a;
+  --bg2: #0f1525;
+  --bg3: #141c32;
+  --surface: #1a2440;
+  --surface2: #1f2d50;
+  --border: rgba(99,179,237,0.15);
+  --accent: #38bdf8;
+  --accent2: #0ea5e9;
+  --accent3: #7dd3fc;
+  --green: #34d399;
+  --yellow: #fbbf24;
+  --red: #f87171;
+  --orange: #fb923c;
+  --purple: #a78bfa;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --mono: 'Space Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(10,14,26,0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  height: 64px;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-logo {
+  width: 36px;
+  height: 36px;
+  animation: spin-slow 8s linear infinite;
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.nav-brand-text {
+  font-family: var(--mono);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
+
+.nav-brand-text span {
+  color: var(--text2);
+  font-weight: 400;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg3);
+  border-radius: 10px;
+  padding: 4px;
+  border: 1px solid var(--border);
+}
+
+.nav-tab {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 7px 18px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-tab.active {
+  background: var(--accent2);
+  color: #fff;
+}
+
+.nav-tab:hover:not(.active) {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.nav-badge {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  padding: 3px 8px;
+  background: rgba(56,189,248,0.1);
+  border: 1px solid rgba(56,189,248,0.2);
+  border-radius: 20px;
+  color: var(--accent3);
+  letter-spacing: 0.05em;
+}
+
+.page { display: none; }
+.page.active { display: block; }
+
+
+.calc-layout {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  min-height: calc(100vh - 64px);
+}
+
+.input-panel {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  padding: 2rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 64px);
+  position: sticky;
+  top: 64px;
+}
+
+.panel-header {
+  margin-bottom: 2rem;
+}
+
+.panel-title {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.panel-heading {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.toggle-group {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 1.5rem;
+}
+
+.toggle-btn {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0a0e1a;
+  font-weight: 700;
+}
+
+
+.input-section {
+  margin-bottom: 1.75rem;
+  background: var(--bg3);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: rgba(56,189,248,0.04);
+  border-bottom: 1px solid var(--border);
+}
+
+.section-title {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent3);
+}
+
+.section-icon {
+  font-size: 1.1rem;
+}
+
+.section-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+
+
+.vehicle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.vehicle-card {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--bg2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.vehicle-card:hover {
+  border-color: rgba(56,189,248,0.4);
+  background: var(--surface);
+}
+
+.vehicle-card.selected {
+  border-color: var(--accent);
+  background: rgba(56,189,248,0.08);
+}
+
+.vehicle-card input[type="checkbox"] {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+}
+
+.vehicle-emoji {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 4px;
+  transition: transform 0.3s ease;
+}
+
+.vehicle-card:hover .vehicle-emoji,
+.vehicle-card.selected .vehicle-emoji {
+  transform: scale(1.15) translateY(-2px);
+}
+
+.vehicle-label {
+  font-size: 0.72rem;
+  color: var(--text2);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.vehicle-card.selected .vehicle-label {
+  color: var(--accent3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field label {
+  font-size: 0.75rem;
+  color: var(--text2);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.field-sub {
+  font-size: 0.65rem;
+  color: var(--text3);
+  font-family: var(--mono);
+}
+
+.field input[type="number"],
+.field select {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s;
+  appearance: none;
+}
+
+.field input[type="number"]:focus,
+.field select:focus {
+  border-color: var(--accent2);
+}
+
+.field input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.range-val {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--accent);
+  min-width: 50px;
+  text-align: right;
+  font-weight: 700;
+}
+
+.emission-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: rgba(251,191,36,0.1);
+  border: 1px solid rgba(251,191,36,0.2);
+  color: var(--yellow);
+  letter-spacing: 0.03em;
+}
+
+.output-panel {
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+}
+
+.output-title {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.output-heading {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.total-hero {
+  background: linear-gradient(135deg, rgba(14,165,233,0.15) 0%, rgba(167,139,250,0.08) 100%);
+  border: 1px solid rgba(14,165,233,0.25);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.total-hero::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56,189,248,0.12), transparent 70%);
+}
+
+.total-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent3);
+  margin-bottom: 8px;
+}
+
+.total-value {
+  font-family: var(--mono);
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 4px;
+  transition: all 0.4s ease;
+}
+
+.total-unit {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--text2);
+  margin-bottom: 1.5rem;
+}
+
+.total-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.meta-item {
+  background: rgba(0,0,0,0.2);
+  border-radius: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+}
+
+.meta-label {
+  font-size: 0.65rem;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: var(--mono);
+  margin-bottom: 6px;
+}
+
+.meta-value {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition: all 0.3s ease;
+}
+
+.pollutant-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 1.5rem;
+}
+
+.pollutant-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.pollutant-card:hover {
+  border-color: rgba(56,189,248,0.3);
+  transform: translateY(-1px);
+}
+
+.pollutant-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--card-color, rgba(56,189,248,0.05)) 0%, transparent 60%);
+}
+
+.pollutant-name {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text3);
+  margin-bottom: 8px;
+}
+
+.pollutant-chemical {
+  font-family: var(--mono);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--card-accent, var(--accent));
+  margin-bottom: 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.pollutant-chemical sub {
+  font-size: 0.65rem;
+}
+
+.pollutant-value {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  transition: all 0.3s ease;
+}
+
+.pollutant-unit {
+  font-size: 0.65rem;
+  color: var(--text3);
+  font-family: var(--mono);
+}
+
+.pollutant-bar {
+  margin-top: 10px;
+  height: 3px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pollutant-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--card-accent, var(--accent));
+  transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* CHARTS */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 1.5rem;
+}
+
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.chart-card.full-width {
+  grid-column: 1 / -1;
+}
+
+.chart-title {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text2);
+  margin-bottom: 14px;
+}
+
+canvas { max-width: 100%; }
+
+/* VEHICLE BREAKDOWN TABLE */
+.breakdown-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 1.5rem;
+}
+
+.breakdown-title {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text2);
+  margin-bottom: 14px;
+}
+
+.breakdown-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 6px;
+}
+
+.breakdown-table th {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  text-align: left;
+  padding: 0 10px 8px;
+}
+
+.breakdown-table td {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--text);
+  padding: 10px;
+  background: var(--bg3);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.breakdown-table td:first-child {
+  border-left: 1px solid var(--border);
+  border-radius: 8px 0 0 8px;
+}
+
+.breakdown-table td:last-child {
+  border-right: 1px solid var(--border);
+  border-radius: 0 8px 8px 0;
+  text-align: right;
+}
+
+.vehicle-row-emoji {
+  margin-right: 6px;
+}
+
+/* ANIMATION CANVAS */
+.anim-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+.anim-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.anim-title {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text2);
+}
+
+.anim-canvas-wrap {
+  position: relative;
+  height: 160px;
+  background: linear-gradient(to bottom, #0a0e1a 0%, #0f1a2e 60%, #111827 100%);
+}
+
+#roadCanvas { width: 100%; height: 100%; }
+
+.equiv-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 1.5rem;
+}
+
+.equiv-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.equiv-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(52,211,153,0.3);
+}
+
+.equiv-emoji { font-size: 2rem; display: block; margin-bottom: 8px; }
+
+.equiv-value {
+  font-family: var(--mono);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--green);
+  margin-bottom: 4px;
+}
+
+.equiv-label {
+  font-size: 0.68rem;
+  color: var(--text3);
+  line-height: 1.4;
+}
+
+.docs-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+}
+
+.docs-hero {
+  text-align: center;
+  margin-bottom: 4rem;
+  padding: 3rem;
+  background: linear-gradient(135deg, rgba(14,165,233,0.08), rgba(167,139,250,0.05));
+  border: 1px solid var(--border);
+  border-radius: 24px;
+}
+
+.docs-hero-title {
+  font-family: var(--mono);
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 1rem;
+  line-height: 1.1;
+}
+
+.docs-hero-sub {
+  color: var(--text2);
+  font-size: 1rem;
+  line-height: 1.7;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.docs-section {
+  margin-bottom: 3rem;
+}
+
+.docs-section-title {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.docs-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.docs-heading {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.docs-text {
+  color: var(--text2);
+  line-height: 1.8;
+  font-size: 0.92rem;
+  margin-bottom: 1rem;
+}
+.docs-text-names {
+  color: var(--text2);
+  line-height: 1.8;
+  font-size: 0.92rem;
+  margin-bottom: 0.5;
+}
+
+.data-table-wrap {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+
+.data-table th {
+  background: var(--surface);
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text2);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid rgba(99,179,237,0.06);
+  color: var(--text);
+}
+
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+.data-table td.accent { color: var(--accent); font-weight: 700; }
+.data-table td.green { color: var(--green); }
+.data-table td.yellow { color: var(--yellow); }
+.data-table td.red { color: var(--red); }
+
+.chemical-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.chemical-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  transition: all 0.25s ease;
+}
+
+.chemical-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+}
+
+.chem-formula {
+  font-family: var(--mono);
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.chem-name {
+  font-size: 0.8rem;
+  color: var(--text2);
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.chem-badge {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  padding: 3px 8px;
+  border-radius: 20px;
+  margin-bottom: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.chem-desc {
+  font-size: 0.75rem;
+  color: var(--text3);
+  line-height: 1.6;
+}
+
+.formula-block {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 12px 12px 0;
+  padding: 16px 20px;
+  margin: 1rem 0;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--accent3);
+  line-height: 1.8;
+}
+
+.formula-block .comment {
+  color: var(--text3);
+  font-size: 0.7rem;
+}
+
+.fuel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.fuel-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.fuel-icon { font-size: 2rem; flex-shrink: 0; }
+
+.fuel-info h4 {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.fuel-info p {
+  font-size: 0.75rem;
+  color: var(--text3);
+  line-height: 1.6;
+}
+
+.ref-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ref-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ref-num {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--accent);
+  min-width: 24px;
+  font-weight: 700;
+}
+
+.ref-text {
+  font-size: 0.8rem;
+  color: var(--text2);
+  line-height: 1.5;
+}
+
+.live-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--green);
+}
+
+.live-dot::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.unit-tag {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  padding: 2px 6px;
+  background: rgba(56,189,248,0.1);
+  border-radius: 4px;
+  color: var(--accent3);
+  border: 1px solid rgba(56,189,248,0.15);
+  margin-left: 4px;
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.updating {
+  animation: countUp 0.3s ease forwards;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+
+@media (max-width: 900px) {
+  .calc-layout { grid-template-columns: 1fr; }
+  .input-panel { position: relative; top: 0; max-height: none; }
+  .charts-grid { grid-template-columns: 1fr; }
+  .pollutant-grid { grid-template-columns: 1fr 1fr; }
+  .chemical-grid { grid-template-columns: 1fr 1fr; }
+  .total-meta { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .vehicle-grid { grid-template-columns: 1fr 1fr; }
+  .equiv-grid { grid-template-columns: 1fr; }
+  .chemical-grid { grid-template-columns: 1fr; }
+  .fuel-grid { grid-template-columns: 1fr; }
+  .total-meta { grid-template-columns: 1fr 1fr; }
+  nav { padding: 0 1rem; }
+  .nav-badge { display: none; }
+}
+
+.tip-box {
+  background: rgba(52,211,153,0.06);
+  border: 1px solid rgba(52,211,153,0.2);
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-size: 0.8rem;
+  color: var(--text2);
+  line-height: 1.6;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.tip-icon { font-size: 1.1rem; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <svg class="nav-logo" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="18" cy="18" r="17" stroke="#38bdf8" stroke-width="1.5"/>
+      <path d="M9 22 Q14 10 18 18 Q22 26 27 14" stroke="#38bdf8" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <circle cx="18" cy="18" r="3" fill="#38bdf8" opacity="0.7"/>
+    </svg>
+    <span class="nav-brand-text">Vehicle<span>Carbon</span></span>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchPage('calculator')">Calculator</button>
+    <button class="nav-tab" onclick="switchPage('docs')">Docs</button>
+  </div>
+  <div class="nav-badge">PH Emission Data</div>
+</nav>
+
+
+<div id="page-calculator" class="page active">
+  <div class="calc-layout">
+
+ 
+    <div class="input-panel">
+      <div class="panel-header">
+        <div class="panel-title">// inputs</div>
+        <div class="panel-heading">Configure Fleet</div>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <div class="panel-title" style="margin-bottom:8px;">Time Period</div>
+        <div class="toggle-group">
+          <button class="toggle-btn active" onclick="setTimePeriod('daily', this)">Daily</button>
+          <button class="toggle-btn" onclick="setTimePeriod('monthly', this)">Monthly</button>
+          <button class="toggle-btn" onclick="setTimePeriod('yearly', this)">Yearly</button>
+        </div>
+      </div>
+
+
+      <div style="margin-bottom:1.5rem;">
+        <div class="panel-title" style="margin-bottom:8px;">Distance Unit</div>
+        <div class="toggle-group">
+          <button class="toggle-btn active" onclick="setDistUnit('km', this)">Kilometers</button>
+          <button class="toggle-btn" onclick="setDistUnit('miles', this)">Miles</button>
+        </div>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <div class="panel-title" style="margin-bottom:8px;">Emission Unit</div>
+        <div class="toggle-group">
+          <button class="toggle-btn active" onclick="setEmUnit('g', this)">Grams (g)</button>
+          <button class="toggle-btn" onclick="setEmUnit('kg', this)">Kg</button>
+          <button class="toggle-btn" onclick="setEmUnit('ton', this)">Metric Ton</button>
+        </div>
+      </div>
+
+      <div class="input-section">
+        <div class="section-header">
+          <span class="section-title">// select vehicles</span>
+          <span class="section-icon">🚗</span>
+        </div>
+        <div class="section-body">
+          <div class="vehicle-grid" id="vehicleGrid"></div>
+        </div>
+      </div>
+
+      <div id="vehicleParams"></div>
+
+      <div class="tip-box">
+        <span class="tip-icon">💡</span>
+        <span>Select one or more vehicles above. Inputs auto-populate with default values from the Philippine emission dataset. All totals update in real-time.</span>
+      </div>
+    </div>
+
+    <div class="output-panel">
+      <div class="output-header">
+        <div>
+          <div class="output-title">// total emission output</div>
+          <div class="output-heading">Emission Results</div>
+        </div>
+        <div class="live-dot">LIVE CALC</div>
+      </div>
+
+      <div class="total-hero">
+        <div class="total-label">Total CO₂ Emission</div>
+        <div class="total-value" id="totalCO2">0.00</div>
+        <div class="total-unit" id="totalUnit">grams CO₂ / day</div>
+        <div class="total-meta">
+          <div class="meta-item">
+            <div class="meta-label">Total PM</div>
+            <div class="meta-value" id="totalPM" style="color:var(--yellow)">0.00 g</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Total CO</div>
+            <div class="meta-value" id="totalCO" style="color:var(--orange)">0.00 g</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Total HC</div>
+            <div class="meta-value" id="totalHC" style="color:var(--purple)">0.00 g</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Total NOₓ</div>
+            <div class="meta-value" id="totalNOx" style="color:var(--red)">0.00 g</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Total SOₓ</div>
+            <div class="meta-value" id="totalSOx" style="color:var(--accent3)">0.00 g</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Vehicles</div>
+            <div class="meta-value" id="totalVehicles" style="color:var(--green)">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anim-container">
+        <div class="anim-header">
+          <span class="anim-title">// emission visualization</span>
+          <span class="live-dot">ANIMATED</span>
+        </div>
+        <div class="anim-canvas-wrap">
+          <canvas id="roadCanvas"></canvas>
+        </div>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <div class="output-title" style="margin-bottom:10px;">// pollutant breakdown</div>
+        <div class="pollutant-grid" id="pollutantGrid">
+        </div>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <div class="output-title" style="margin-bottom:10px;">// environmental equivalencies</div>
+        <div class="equiv-grid" id="equivGrid"></div>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <div class="output-title" style="margin-bottom:10px;">// emission analytics</div>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-title">// CO₂ by Vehicle Type</div>
+            <canvas id="chartBarCO2" height="220"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">// Pollutant Distribution</div>
+            <canvas id="chartDoughnut" height="220"></canvas>
+          </div>
+          <div class="chart-card full-width">
+            <div class="chart-title">// All Pollutants by Vehicle (g/km)</div>
+            <canvas id="chartRadar" height="200"></canvas>
+          </div>
+          <div class="chart-card full-width">
+            <div class="chart-title">// Total Emissions Comparison (g)</div>
+            <canvas id="chartStacked" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="breakdown-card">
+        <div class="breakdown-title">// per-vehicle emission breakdown</div>
+        <div id="breakdownTableWrap"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="page-docs" class="page">
+  <div class="docs-page">
+
+    <div class="docs-hero">
+      <div class="docs-hero-title">VehicleCarbon<br/>Documentation</div>
+      <p class="docs-hero-sub">A comprehensive reference for the vehicle emission calculator — covering datasets, formulas, pollutants, fuel types, and methodology based on Philippine transportation data.</p>
+    </div>
+
+    <div class="docs-section">
+      <div class="docs-section-title">01 — About</div>
+      <div class="docs-heading">What is this calculator?</div>
+      <p class="docs-text">VehicleCarbon computes greenhouse gas (GHG) and air pollutant emissions from road vehicles in the Philippine context. It uses fuel-based emission factors and activity data (distance traveled, number of vehicles) to produce emission totals for CO₂, PM, CO, HC, NOₓ, and SOₓ.</p>
+      <p class="docs-text">Results can be viewed in daily, monthly, or yearly timeframes and in grams, kilograms, or metric tons, making it suitable for household surveys, transport studies, and environmental science coursework.</p>
+    </div>
+
+    <div class="docs-section">
+      <div class="docs-section-title">02 — Dataset</div>
+      <div class="docs-heading">Vehicle Emission Factors</div>
+      <p class="docs-text">The following table lists all vehicle types included in the calculator, their fuel economy, and their per-liter and per-kilometer emission factors as sourced from Philippine transport and environmental agencies.</p>
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Vehicle Type</th>
+              <th>Fuel</th>
+              <th>Economy (km/L)</th>
+              <th>CO₂ (g/L)</th>
+              <th>PM (g/L)</th>
+              <th>CO (g/L)</th>
+              <th>HC (g/L)</th>
+              <th>NOₓ (g/L)</th>
+              <th>SOₓ (g/L)</th>
+              <th>CO₂ (g/km)</th>
+            </tr>
+          </thead>
+          <tbody id="docsDataTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="docs-section">
+      <div class="docs-section-title">03 — Formulas</div>
+      <div class="docs-heading">Calculation Methodology</div>
+      <p class="docs-text">The calculator uses a straightforward activity-based emission inventory approach. All emission factors are per-liter of fuel consumed.</p>
+
+      <div class="formula-block">
+        <div class="comment">// Step 1: Fuel consumption rate from economy</div>
+        Fuel Consumption (L/km) = 1 ÷ Fuel Economy (km/L)<br><br>
+        <div class="comment">// Step 2: Emission per km for each pollutant</div>
+        Pollutant (g/km) = Emission Factor (g/L) × Fuel Consumption (L/km)<br><br>
+        <div class="comment">// Step 3: Total emission for fleet</div>
+        Total Pollutant (g) = Pollutant (g/km) × Number of Vehicles × Distance (km)<br><br>
+        <div class="comment">// Step 4: Time period scaling</div>
+        Monthly = Daily × 30 | Yearly = Daily × 365
+      </div>
+
+      <p class="docs-text">For example, a Passenger Car (Gasoline) with 12 km/L economy has a fuel consumption of 0.0833 L/km. At a CO₂ factor of 2,350 g/L, it emits 195.83 g CO₂ per km. With 8 vehicles traveling 10 km each, total CO₂ = 195.83 × 8 × 10 = 15,667 g.</p>
+    </div>
+
+    <div class="docs-section">
+      <div class="docs-section-title">04 — Pollutants</div>
+      <div class="docs-heading">Chemical Compounds</div>
+      <p class="docs-text">Vehicle combustion produces multiple pollutants with different environmental and health impacts. The calculator tracks six primary pollutants:</p>
+      <div class="chemical-grid" id="chemicalGrid"></div>
+    </div>
+
+    <div class="docs-section">
+      <div class="docs-section-title">05 — Fuel Types</div>
+      <div class="docs-heading">Gasoline vs Diesel</div>
+      <p class="docs-text">Emission factors differ significantly between gasoline and diesel fuels. Diesel produces more CO₂ per liter (2,680 g/L vs 2,350 g/L for gasoline) but typically has better fuel economy. Diesel also produces significantly more particulate matter (PM).</p>
+      <div class="fuel-grid">
+        <div class="fuel-card">
+          <span class="fuel-icon">⛽</span>
+          <div class="fuel-info">
+            <h4>Gasoline</h4>
+            <p>CO₂ factor: 2,350 g/L. Used in passenger cars, motorcycles, and tricycles. Lower PM emissions but typically less fuel-efficient than diesel for heavy vehicles.</p>
+          </div>
+        </div>
+        <div class="fuel-card">
+          <span class="fuel-icon">🛢️</span>
+          <div class="fuel-info">
+            <h4>Diesel</h4>
+            <p>CO₂ factor: 2,680 g/L. Used in passenger cars, jeepneys, and buses. Higher PM (2 g/L) and NOₓ emissions. More energy-dense than gasoline.</p>
+          </div>
+        </div>
+        <div class="fuel-card">
+          <span class="fuel-icon">🚌</span>
+          <div class="fuel-info">
+            <h4>Big Bus (Special)</h4>
+            <p>CO₂ factor: 6,288 g/L — the highest in the dataset. Uses a different fuel blend. Extremely high PM (3.13 g/L) and CO (363 g/L) factors.</p>
+          </div>
+        </div>
+        <div class="fuel-card">
+          <span class="fuel-icon">🚐</span>
+          <div class="fuel-info">
+            <h4>Mini Bus</h4>
+            <p>CO₂ factor: 985 g/L. Lower emission factors than the big bus, representing a cleaner but still significant transport mode for urban areas.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="docs-section">
+      <div class="docs-section-title">06 — References</div>
+      <div class="docs-heading">Data Sources</div>
+      <div class="ref-list">
+        <div class="ref-item">
+          <span class="ref-num">[1]</span>
+          <span class="ref-text">Climate Transparency Report — Philippines 2020. Climate-Transparency.org. Emission factors for Philippine transport sector.</span>
+        </div>
+        <div class="ref-item">
+          <span class="ref-num">[2]</span>
+          <span class="ref-text">GHG Protocol Calculation Tools and Guidance. ghgprotocol.org. Mobile combustion methodology.</span>
+        </div>
+        <div class="ref-item">
+          <span class="ref-num">[3]</span>
+          <span class="ref-text">US EPA AP-42 Stationary Emissions Factors 3rd Edition (2016). EPA.gov. Fuel-based emission factor compilation.</span>
+        </div>
+        <div class="ref-item">
+          <span class="ref-num">[4]</span>
+          <span class="ref-text">NICCDIES — National Integrated Climate Change Database. climate.gov.ph. Philippine greenhouse gas emissions data.</span>
+        </div>
+        <div class="ref-item">
+          <span class="ref-num">[5]</span>
+          <span class="ref-text">NDI Industries Refrigerant Table. ndlindustries.com. Referenced for refrigerant GWP values.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="docs-section">
+      <div class="docs-section-title">07 — Credits</div>
+      <div class="docs-heading">Project Information</div>
+      <p class="docs-text">This calculator was built for educational purposes in partial fulfillment of Environmental Science coursework. Data sourced from Philippine government and international environmental databases.</p>
+      <div class="tip-box">
+        <span class="tip-icon">📌</span>
+        <span>All emission factors are sourced from peer-reviewed and government-published data. Calculations are approximations suitable for educational and planning purposes. For regulatory compliance, consult certified environmental engineers.</span>
+      </div>
+    </div>
+
+    <div class="docs-section">
+      <div class="docs-section-title">What's your Carbon?</div>
+      <div class="docs-heading">Members</div>
+      <p class="docs-text-names">Miles Alexis Matthew Gerlaban</p>
+      <p class="docs-text-names">Adrian Garcia</p>
+      <p class="docs-text-names">Jarid Hilario</p>
+      <p class="docs-text-names">Cedrick Eno</p>
+    </div>
+  </div>
+</div>
+
+<script>
+
+const VEHICLE_DATA = [
+  { id: 'car_gasoline',  name: 'Passenger Car (Gasoline)', emoji: '🚗', fuel: 'Gasoline', economy: 12,  co2L: 2350, pmL: 0.5,  coL: 250, hcL: 30,  noxL: 13.5, soxL: 0.055, defaultN: 8,  defaultD: 10 },
+  { id: 'car_diesel',    name: 'Passenger Car (Diesel)',   emoji: '🚙', fuel: 'Diesel',   economy: 18,  co2L: 2680, pmL: 2,    coL: 40,  hcL: 10,  noxL: 35,   soxL: 0.3,   defaultN: 8,  defaultD: 10 },
+  { id: 'jeepney',       name: 'Traditional Jeepney',      emoji: '🚌', fuel: 'Diesel',   economy: 5,   co2L: 2680, pmL: 2,    coL: 40,  hcL: 10,  noxL: 35,   soxL: 0.3,   defaultN: 22, defaultD: 10 },
+  { id: 'motorcycle',    name: 'Motorcycle',                emoji: '🏍️', fuel: 'Gasoline', economy: 45,  co2L: 2350, pmL: 0.5,  coL: 250, hcL: 30,  noxL: 13.5, soxL: 0.055, defaultN: 2,  defaultD: 10 },
+  { id: 'tricycle',      name: 'Tricycle',                  emoji: '🛺', fuel: 'Gasoline', economy: 45,  co2L: 2350, pmL: 0.5,  coL: 250, hcL: 30,  noxL: 13.5, soxL: 0.055, defaultN: 5,  defaultD: 10 },
+  { id: 'big_bus',       name: 'Big Bus',                   emoji: '🚌', fuel: 'Special',  economy: 3,   co2L: 6288, pmL: 3.13, coL: 363, hcL: 50,  noxL: 60,   soxL: 0.45,  defaultN: 1,  defaultD: 10 },
+  { id: 'mini_bus',      name: 'Mini Bus',                  emoji: '🚐', fuel: 'Diesel',   economy: 7,   co2L: 985,  pmL: 0.55, coL: 44,  hcL: 8.5, noxL: 12.5, soxL: 0.085, defaultN: 1,  defaultD: 10 },
+];
+
+VEHICLE_DATA.forEach(v => {
+  const fc = 1 / v.economy; 
+  v.fc = fc;
+  v.co2km  = v.co2L  * fc;
+  v.pmkm   = v.pmL   * fc;
+  v.cokm   = v.coL   * fc;
+  v.hckm   = v.hcL   * fc;
+  v.noxkm  = v.noxL  * fc;
+  v.soxkm  = v.soxL  * fc;
+});
+
+const POLLUTANTS = [
+  { key:'co2',  label:'Carbon Dioxide', formula:'CO₂',  sub:'2', color:'#38bdf8', bg:'rgba(56,189,248,0.06)',  unit:'g' },
+  { key:'pm',   label:'Particulate Matter', formula:'PM',   sub:'',  color:'#fbbf24', bg:'rgba(251,191,36,0.06)', unit:'g' },
+  { key:'co',   label:'Carbon Monoxide', formula:'CO',   sub:'',  color:'#fb923c', bg:'rgba(251,146,60,0.06)', unit:'g' },
+  { key:'hc',   label:'Hydrocarbons',   formula:'HC',   sub:'',  color:'#a78bfa', bg:'rgba(167,139,250,0.06)',unit:'g' },
+  { key:'nox',  label:'Nitrogen Oxides',formula:'NO',   sub:'x', color:'#f87171', bg:'rgba(248,113,113,0.06)', unit:'g' },
+  { key:'sox',  label:'Sulfur Oxides',  formula:'SO',   sub:'x', color:'#7dd3fc', bg:'rgba(125,211,252,0.06)', unit:'g' },
+];
+
+const CHEMICALS = [
+  { formula:'CO₂', name:'Carbon Dioxide', color:'#38bdf8', badgeColor:'rgba(56,189,248,0.15)', badgeText:'color: #38bdf8', badge:'Greenhouse Gas', desc:'Primary GHG from fuel combustion. 1 kg CO₂ has a GWP of 1. Causes global warming, ocean acidification, and climate disruption.' },
+  { formula:'PM', name:'Particulate Matter', color:'#fbbf24', badgeColor:'rgba(251,191,36,0.15)', badgeText:'color:#fbbf24', badge:'Health Hazard', desc:'Fine and coarse particles from incomplete combustion. PM2.5 penetrates deep into lungs, linked to cardiovascular and respiratory disease.' },
+  { formula:'CO', name:'Carbon Monoxide', color:'#fb923c', badgeColor:'rgba(251,146,60,0.15)', badgeText:'color:#fb923c', badge:'Toxic', desc:'Colorless, odorless gas from incomplete combustion. Reduces blood oxygen capacity; highly toxic at elevated concentrations.' },
+  { formula:'HC', name:'Hydrocarbons', color:'#a78bfa', badgeColor:'rgba(167,139,250,0.15)', badgeText:'color:#a78bfa', badge:'Ozone Precursor', desc:'Unburned fuel compounds. Reacts with NOₓ under sunlight to form ground-level ozone (smog), irritating respiratory systems.' },
+  { formula:'NOₓ', name:'Nitrogen Oxides', color:'#f87171', badgeColor:'rgba(248,113,113,0.15)', badgeText:'color:#f87171', badge:'Smog Precursor', desc:'Formed at high combustion temperatures. Causes respiratory issues and contributes to smog and acid rain formation.' },
+  { formula:'SOₓ', name:'Sulfur Oxides', color:'#7dd3fc', badgeColor:'rgba(125,211,252,0.15)', badgeText:'color:#7dd3fc', badge:'Acid Rain', desc:'Produced from sulfur in fuel. Combines with water vapor to form sulfuric acid, causing acid rain and lung irritation.' },
+];
+
+
+let state = {
+  timePeriod: 'daily',   
+  distUnit: 'km',        
+  emUnit: 'g',           
+  selected: {},           
+};
+
+const PERIOD_MULT = { daily: 1, monthly: 30, yearly: 365 };
+const DIST_MULT   = { km: 1, miles: 1.60934 };
+const EM_DIV      = { g: 1, kg: 1000, ton: 1000000 };
+const EM_LABELS   = { g: 'g', kg: 'kg', ton: 'mt' };
+
+
+function init() {
+  buildVehicleGrid();
+  buildPollutantGrid();
+  buildDocsTable();
+  buildChemicalGrid();
+  buildEquivGrid();
+  initCharts();
+  initRoadAnimation();
+  calculate();
+}
+
+
+function buildVehicleGrid() {
+  const grid = document.getElementById('vehicleGrid');
+  grid.innerHTML = VEHICLE_DATA.map(v => `
+    <div class="vehicle-card" id="vcard-${v.id}" onclick="toggleVehicle('${v.id}')">
+      <input type="checkbox" id="vcheck-${v.id}" onchange="toggleVehicle('${v.id}')" onclick="event.stopPropagation()">
+      <span class="vehicle-emoji">${v.emoji}</span>
+      <span class="vehicle-label">${v.name}</span>
+      <div style="margin-top:4px;"><span class="unit-tag">${v.fuel}</span></div>
+    </div>
+  `).join('');
+}
+
+function toggleVehicle(id) {
+  const card = document.getElementById(`vcard-${id}`);
+  const check = document.getElementById(`vcheck-${id}`);
+  if (state.selected[id]) {
+    delete state.selected[id];
+    card.classList.remove('selected');
+    check.checked = false;
+  } else {
+    const v = VEHICLE_DATA.find(x => x.id === id);
+    state.selected[id] = { n: v.defaultN, dist: v.defaultD };
+    card.classList.add('selected');
+    check.checked = true;
+  }
+  buildVehicleParams();
+  calculate();
+}
+
+function buildVehicleParams() {
+  const container = document.getElementById('vehicleParams');
+  const ids = Object.keys(state.selected);
+  if (!ids.length) { container.innerHTML = ''; return; }
+
+  const distLabel = state.distUnit === 'km' ? 'km' : 'miles';
+
+  container.innerHTML = ids.map(id => {
+    const v = VEHICLE_DATA.find(x => x.id === id);
+    const s = state.selected[id];
+    return `
+    <div class="input-section" style="margin-bottom:1rem;">
+      <div class="section-header">
+        <span class="section-title">${v.emoji} ${v.name}</span>
+        <span class="emission-badge">⛽ ${v.fuel}</span>
+      </div>
+      <div class="section-body">
+        <div class="field">
+          <label>Number of Vehicles / Users</label>
+          <div class="range-row">
+            <input type="range" min="1" max="100" value="${s.n}" oninput="updateParam('${id}','n',+this.value); this.nextElementSibling.textContent=this.value">
+            <span class="range-val">${s.n}</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Distance Traveled <span class="unit-tag">${distLabel}/day</span></label>
+          <div class="range-row">
+            <input type="range" min="1" max="500" value="${s.dist}" oninput="updateParam('${id}','dist',+this.value); this.nextElementSibling.textContent=this.value">
+            <span class="range-val">${s.dist}</span>
+          </div>
+          <input type="number" value="${s.dist}" min="1" max="9999" oninput="updateParam('${id}','dist',+this.value); updateRangeSync('${id}',this.value)" style="margin-top:6px;">
+        </div>
+        <div class="field">
+          <label>Fuel Economy <span class="unit-tag">km/L</span></label>
+          <input type="number" value="${v.economy}" min="1" max="200" step="0.1" oninput="updateVehicleEconomy('${id}',+this.value)" style="font-family:var(--mono);">
+          <span class="field-sub">CO₂/km = ${(v.co2km).toFixed(2)} g/km</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateRangeSync(id, val) {
+
+  const section = document.querySelector(`#vehicleParams [oninput*="'${id}','dist'"]`);
+}
+
+function updateParam(id, key, val) {
+  if (state.selected[id]) {
+    state.selected[id][key] = val;
+    calculate();
+  }
+}
+
+function updateVehicleEconomy(id, val) {
+  const v = VEHICLE_DATA.find(x => x.id === id);
+  if (!v || val <= 0) return;
+  const fc = 1 / val;
+  v.economy = val; v.fc = fc;
+  v.co2km = v.co2L * fc; v.pmkm = v.pmL * fc; v.cokm = v.coL * fc;
+  v.hckm = v.hcL * fc; v.noxkm = v.noxL * fc; v.soxkm = v.soxL * fc;
+  calculate();
+}
+
+
+function calculate() {
+  const mult = PERIOD_MULT[state.timePeriod];
+  const dm   = DIST_MULT[state.distUnit];
+  const div  = EM_DIV[state.emUnit];
+  const ulab = EM_LABELS[state.emUnit];
+
+  let totals = { co2:0, pm:0, co:0, hc:0, nox:0, sox:0 };
+  let perVehicle = [];
+
+  Object.entries(state.selected).forEach(([id, s]) => {
+    const v = VEHICLE_DATA.find(x => x.id === id);
+    const distKm = s.dist * dm;
+    const co2  = v.co2km  * s.n * distKm * mult;
+    const pm   = v.pmkm   * s.n * distKm * mult;
+    const co   = v.cokm   * s.n * distKm * mult;
+    const hc   = v.hckm   * s.n * distKm * mult;
+    const nox  = v.noxkm  * s.n * distKm * mult;
+    const sox  = v.soxkm  * s.n * distKm * mult;
+    totals.co2 += co2; totals.pm += pm; totals.co += co;
+    totals.hc  += hc;  totals.nox += nox; totals.sox += sox;
+    perVehicle.push({ v, n: s.n, dist: distKm, co2, pm, co, hc, nox, sox });
+  });
+
+  animateValue('totalCO2', totals.co2 / div, 2);
+  document.getElementById('totalUnit').textContent =
+    `${ulab} CO₂ / ${state.timePeriod}`;
+
+  const fmt = (val) => fmtNum(val / div, 2) + ' ' + ulab;
+  animateValue('totalPM',  totals.pm  / div, 2, ulab);
+  animateValue('totalCO',  totals.co  / div, 2, ulab);
+  animateValue('totalHC',  totals.hc  / div, 2, ulab);
+  animateValue('totalNOx', totals.nox / div, 2, ulab);
+  animateValue('totalSOx', totals.sox / div, 2, ulab);
+
+  const totalN = Object.values(state.selected).reduce((s, x) => s + x.n, 0);
+  document.getElementById('totalVehicles').textContent = totalN;
+
+  updatePollutantCards(totals, div, ulab);
+
+  updateCharts(perVehicle, totals, div, ulab);
+
+  updateBreakdownTable(perVehicle, div, ulab);
+
+  updateEquivalencies(totals.co2);
+
+  updateRoadVehicles(perVehicle);
+}
+
+function fmtNum(n, dp=2) {
+  if (n === 0) return '0.00';
+  if (n < 0.001) return n.toExponential(2);
+  if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1000) return n.toLocaleString(undefined, {maximumFractionDigits: dp});
+  return n.toFixed(dp);
+}
+
+function animateValue(elId, val, dp=2, suffix='') {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.classList.remove('updating');
+  void el.offsetWidth;
+  el.classList.add('updating');
+  el.textContent = fmtNum(val, dp) + (suffix ? ' ' + suffix : '');
+}
+
+
+function buildPollutantGrid() {
+  const grid = document.getElementById('pollutantGrid');
+  grid.innerHTML = POLLUTANTS.map(p => `
+    <div class="pollutant-card" style="--card-color:${p.bg};--card-accent:${p.color}">
+      <div class="pollutant-name">${p.label}</div>
+      <div class="pollutant-chemical">${p.formula.replace(/[0-9]/g, d => `<sub>${d}</sub>`).replace('x','<sub>x</sub>')}</div>
+      <div class="pollutant-value" id="poll-${p.key}">0.00</div>
+      <div class="pollutant-unit" id="poll-${p.key}-unit">g / day</div>
+      <div class="pollutant-bar"><div class="pollutant-bar-fill" id="poll-${p.key}-bar" style="width:0%"></div></div>
+    </div>
+  `).join('');
+}
+
+function updatePollutantCards(totals, div, ulab) {
+  const vals = {
+    co2: totals.co2 / div,
+    pm:  totals.pm  / div,
+    co:  totals.co  / div,
+    hc:  totals.hc  / div,
+    nox: totals.nox / div,
+    sox: totals.sox / div,
+  };
+  const maxVal = Math.max(...Object.values(vals), 1);
+  POLLUTANTS.forEach(p => {
+    const el = document.getElementById(`poll-${p.key}`);
+    const elU = document.getElementById(`poll-${p.key}-unit`);
+    const elB = document.getElementById(`poll-${p.key}-bar`);
+    if (el) {
+      el.classList.remove('updating'); void el.offsetWidth; el.classList.add('updating');
+      el.textContent = fmtNum(vals[p.key], 3);
+    }
+    if (elU) elU.textContent = `${ulab} / ${state.timePeriod}`;
+    if (elB) elB.style.width = (vals[p.key] / maxVal * 100) + '%';
+  });
+}
+
+function buildEquivGrid() {
+  const grid = document.getElementById('equivGrid');
+  grid.innerHTML = `
+    <div class="equiv-card"><span class="equiv-emoji">🌳</span><div class="equiv-value" id="equiv-trees">0</div><div class="equiv-label">Trees needed to absorb this CO₂/year</div></div>
+    <div class="equiv-card"><span class="equiv-emoji">🚗</span><div class="equiv-value" id="equiv-cardays">0</div><div class="equiv-label">Equivalent car-days of driving</div></div>
+    <div class="equiv-card"><span class="equiv-emoji">💡</span><div class="equiv-value" id="equiv-bulbs">0</div><div class="equiv-label">LED bulbs powered for a day</div></div>
+    <div class="equiv-card"><span class="equiv-emoji">🏠</span><div class="equiv-value" id="equiv-homes">0</div><div class="equiv-label">Average PH homes powered (monthly)</div></div>
+    <div class="equiv-card"><span class="equiv-emoji">✈️</span><div class="equiv-value" id="equiv-flights">0</div><div class="equiv-label">MNL-SFO flights equivalent</div></div>
+    <div class="equiv-card"><span class="equiv-emoji">🔋</span><div class="equiv-value" id="equiv-kwh">0</div><div class="equiv-label">kWh of electricity equivalent</div></div>
+  `;
+}
+
+function updateEquivalencies(co2g) {
+  const trees = co2g * PERIOD_MULT[state.timePeriod === 'yearly' ? 'yearly' : 'yearly'] / PERIOD_MULT[state.timePeriod] / 21000;
+  const yearCO2 = co2g * 365 / PERIOD_MULT[state.timePeriod];
+  const treeV = yearCO2 / 21000;
+
+  const cardays = co2g / 4095;
+
+  const bulbs = co2g / 40;
+
+  const homes = co2g / 168000 * PERIOD_MULT[state.timePeriod];
+
+  const flights = co2g / 1200000;
+
+  const kwh = co2g / 820;
+
+  const setE = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = fmtNum(val, 1);
+  };
+  setE('equiv-trees', treeV);
+  setE('equiv-cardays', cardays);
+  setE('equiv-bulbs', bulbs);
+  setE('equiv-homes', homes);
+  setE('equiv-flights', flights);
+  setE('equiv-kwh', kwh);
+}
+
+let chartBarCO2, chartDoughnut, chartRadar, chartStacked;
+
+const CHART_OPTS = {
+  responsive: true,
+  maintainAspectRatio: true,
+  plugins: { legend: { labels: { color: '#94a3b8', font: { family: 'Space Mono', size: 10 } } } },
+  scales: {}
+};
+
+function initCharts() {
+  const darkGrid = { color: 'rgba(255,255,255,0.04)' };
+  const axisStyle = { color: '#64748b', font: { family: 'Space Mono', size: 9 } };
+
+  chartBarCO2 = new Chart(document.getElementById('chartBarCO2'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'CO₂', data: [], backgroundColor: '#38bdf8', borderRadius: 6, borderSkipped: false }] },
+    options: { ...CHART_OPTS, scales: { x: { ticks: axisStyle, grid: darkGrid }, y: { ticks: axisStyle, grid: darkGrid, beginAtZero: true } }, plugins: { ...CHART_OPTS.plugins, legend: { display: false } } }
+  });
+
+  chartDoughnut = new Chart(document.getElementById('chartDoughnut'), {
+    type: 'doughnut',
+    data: { labels: ['CO₂','PM','CO','HC','NOₓ','SOₓ'], datasets: [{ data: [0,0,0,0,0,0], backgroundColor: ['#38bdf8','#fbbf24','#fb923c','#a78bfa','#f87171','#7dd3fc'], borderWidth: 0, hoverOffset: 8 }] },
+    options: { ...CHART_OPTS, cutout: '65%', plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Space Mono', size: 9 }, boxWidth: 10, padding: 10 } } } }
+  });
+
+  chartRadar = new Chart(document.getElementById('chartRadar'), {
+    type: 'radar',
+    data: { labels: ['CO₂/km','PM/km','CO/km','HC/km','NOₓ/km','SOₓ/km'], datasets: [] },
+    options: { ...CHART_OPTS, scales: { r: { grid: { color: 'rgba(255,255,255,0.06)' }, angleLines: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#64748b', font: { family: 'Space Mono', size: 8 }, backdropColor: 'transparent' }, pointLabels: { color: '#94a3b8', font: { family: 'Space Mono', size: 8 } } } } }
+  });
+
+  chartStacked = new Chart(document.getElementById('chartStacked'), {
+    type: 'bar',
+    data: { labels: [], datasets: [
+      { label:'CO₂', data:[], backgroundColor:'#38bdf8', borderRadius:4, stack:'e' },
+      { label:'PM',  data:[], backgroundColor:'#fbbf24', borderRadius:4, stack:'e' },
+      { label:'CO',  data:[], backgroundColor:'#fb923c', borderRadius:4, stack:'e' },
+      { label:'HC',  data:[], backgroundColor:'#a78bfa', borderRadius:4, stack:'e' },
+      { label:'NOₓ', data:[], backgroundColor:'#f87171', borderRadius:4, stack:'e' },
+      { label:'SOₓ', data:[], backgroundColor:'#7dd3fc', borderRadius:4, stack:'e' },
+    ]},
+    options: { ...CHART_OPTS, scales: {
+      x: { stacked:true, ticks: { color:'#64748b', font:{family:'Space Mono', size:9} }, grid:{ color:'rgba(255,255,255,0.04)' } },
+      y: { stacked:true, ticks: { color:'#64748b', font:{family:'Space Mono', size:9} }, grid:{ color:'rgba(255,255,255,0.04)' } }
+    }}
+  });
+}
+
+const COLORS_RADAR = ['#38bdf8','#fbbf24','#fb923c','#a78bfa','#f87171','#7dd3fc','#34d399'];
+
+function updateCharts(perVehicle, totals, div, ulab) {
+  const names   = perVehicle.map(p => p.v.emoji + ' ' + p.v.name.split('(')[0].trim());
+  const co2vals = perVehicle.map(p => +(p.co2/div).toFixed(3));
+  const pmvals  = perVehicle.map(p => +(p.pm/div).toFixed(4));
+  const covals  = perVehicle.map(p => +(p.co/div).toFixed(3));
+  const hcvals  = perVehicle.map(p => +(p.hc/div).toFixed(4));
+  const noxvals = perVehicle.map(p => +(p.nox/div).toFixed(4));
+  const soxvals = perVehicle.map(p => +(p.sox/div).toFixed(5));
+
+  chartBarCO2.data.labels = names;
+  chartBarCO2.data.datasets[0].data = co2vals;
+  chartBarCO2.update('active');
+
+  chartDoughnut.data.datasets[0].data = [
+    totals.co2/div, totals.pm/div, totals.co/div,
+    totals.hc/div,  totals.nox/div, totals.sox/div
+  ];
+  chartDoughnut.update('active');
+
+  chartRadar.data.labels = ['CO₂/km','PM/km','CO/km','HC/km','NOₓ/km','SOₓ/km'];
+  chartRadar.data.datasets = perVehicle.map((p, i) => ({
+    label: p.v.emoji + ' ' + p.v.name.split('(')[0].trim(),
+    data: [p.v.co2km, p.v.pmkm, p.v.cokm, p.v.hckm, p.v.noxkm, p.v.soxkm],
+    borderColor: COLORS_RADAR[i % COLORS_RADAR.length],
+    backgroundColor: COLORS_RADAR[i % COLORS_RADAR.length] + '18',
+    pointBackgroundColor: COLORS_RADAR[i % COLORS_RADAR.length],
+    borderWidth: 2
+  }));
+  chartRadar.update('active');
+
+  chartStacked.data.labels = names;
+  chartStacked.data.datasets[0].data = co2vals;
+  chartStacked.data.datasets[1].data = pmvals;
+  chartStacked.data.datasets[2].data = covals;
+  chartStacked.data.datasets[3].data = hcvals;
+  chartStacked.data.datasets[4].data = noxvals;
+  chartStacked.data.datasets[5].data = soxvals;
+  chartStacked.update('active');
+}
+
+
+function updateBreakdownTable(perVehicle, div, ulab) {
+  const wrap = document.getElementById('breakdownTableWrap');
+  if (!perVehicle.length) {
+    wrap.innerHTML = '<p style="color:var(--text3);font-size:0.8rem;text-align:center;padding:2rem 0;">Select a vehicle type to see breakdown.</p>';
+    return;
+  }
+  wrap.innerHTML = `
+    <table class="breakdown-table">
+      <thead>
+        <tr>
+          <th>Vehicle</th><th>Vehicles</th><th>Dist(km)</th>
+          <th>CO₂ (${ulab})</th><th>PM (${ulab})</th><th>CO (${ulab})</th>
+          <th>HC (${ulab})</th><th>NOₓ (${ulab})</th><th>SOₓ (${ulab})</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${perVehicle.map(p => `
+        <tr>
+          <td><span class="vehicle-row-emoji">${p.v.emoji}</span>${p.v.name}</td>
+          <td>${p.n}</td>
+          <td>${p.dist.toFixed(1)}</td>
+          <td style="color:var(--accent)">${fmtNum(p.co2/div,3)}</td>
+          <td style="color:var(--yellow)">${fmtNum(p.pm/div,4)}</td>
+          <td style="color:var(--orange)">${fmtNum(p.co/div,3)}</td>
+          <td style="color:var(--purple)">${fmtNum(p.hc/div,4)}</td>
+          <td style="color:var(--red)">${fmtNum(p.nox/div,4)}</td>
+          <td style="color:var(--accent3)">${fmtNum(p.sox/div,5)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+
+let roadCtx, roadVehicles = [], roadAnim = null, roadFrame = 0;
+
+function initRoadAnimation() {
+  const canvas = document.getElementById('roadCanvas');
+  canvas.width = canvas.offsetWidth || 800;
+  canvas.height = canvas.offsetHeight || 160;
+  roadCtx = canvas.getContext('2d');
+  startRoadAnimation();
+}
+
+const SMOKE_COLORS = ['rgba(150,170,200,', 'rgba(200,200,180,', 'rgba(180,200,180,'];
+
+function startRoadAnimation() {
+  if (roadAnim) cancelAnimationFrame(roadAnim);
+  function draw() {
+    const canvas = document.getElementById('roadCanvas');
+    const W = canvas.width = canvas.offsetWidth || 800;
+    const H = canvas.height = 160;
+    const ctx = roadCtx;
+    roadFrame++;
+
+    const sky = ctx.createLinearGradient(0,0,0,H);
+    sky.addColorStop(0,'#0a0e1a'); sky.addColorStop(0.6,'#0f1a2e'); sky.addColorStop(1,'#111827');
+    ctx.fillStyle = sky; ctx.fillRect(0,0,W,H);
+
+    if (roadFrame % 3 === 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      for (let i=0;i<2;i++) {
+        ctx.fillRect(Math.random()*W, Math.random()*H*0.5, 1, 1);
+      }
+    }
+
+    const roadY = H * 0.65;
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, roadY, W, H - roadY);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, roadY, W, 2);
+
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([30, 20]);
+    ctx.lineDashOffset = -(roadFrame * 3) % 50;
+    ctx.beginPath();
+    ctx.moveTo(0, roadY + (H - roadY) * 0.5);
+    ctx.lineTo(W, roadY + (H - roadY) * 0.5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (!window._roadParticles) window._roadParticles = [];
+    const particles = window._roadParticles;
+
+    roadVehicles.forEach(rv => {
+      if (Math.random() < 0.3) {
+        const co2Intensity = rv.co2Rate; 
+        particles.push({
+          x: rv.x - 10,
+          y: roadY - 10,
+          vx: -0.5 - Math.random(),
+          vy: -0.5 - Math.random() * 1.5,
+          life: 1,
+          maxLife: 60 + Math.random() * 40,
+          age: 0,
+          size: 4 + Math.random() * 8,
+          color: co2Intensity > 0.7 ? 'rgba(100,80,60,' : co2Intensity > 0.4 ? 'rgba(130,140,150,' : 'rgba(180,200,190,'
+        });
+      }
+    });
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.age++;
+      p.x += p.vx; p.y += p.vy;
+      p.life = 1 - p.age / p.maxLife;
+      if (p.life <= 0) { particles.splice(i, 1); continue; }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * (1 + p.age/p.maxLife * 2), 0, Math.PI*2);
+      ctx.fillStyle = p.color + (p.life * 0.4) + ')';
+      ctx.fill();
+    }
+
+
+    roadVehicles.forEach(rv => {
+      rv.x += rv.speed;
+      if (rv.x > W + 80) rv.x = -80;
+      drawVehicle(ctx, rv, roadY);
+    });
+
+    roadAnim = requestAnimationFrame(draw);
+  }
+  roadAnim = requestAnimationFrame(draw);
+}
+
+function drawVehicle(ctx, rv, roadY) {
+  const x = rv.x, y = roadY - rv.h * 0.5 + 5;
+  ctx.save();
+  ctx.translate(x, y);
+
+  ctx.beginPath();
+  ctx.ellipse(0, rv.h*0.55, rv.w*0.45, 4, 0, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fill();
+
+  ctx.fillStyle = rv.color;
+  ctx.beginPath();
+  ctx.roundRect(-rv.w/2, -rv.h/2, rv.w, rv.h, rv.h*0.2);
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(150,220,255,0.7)';
+  if (rv.type === 'bus') {
+    for (let i=0;i<4;i++) {
+      ctx.fillRect(-rv.w/2+4+i*12, -rv.h/2+4, 8, 7);
+    }
+  } else if (rv.type === 'car') {
+    ctx.beginPath();
+    ctx.roundRect(-rv.w*0.25, -rv.h*0.55, rv.w*0.5, rv.h*0.3, 3);
+    ctx.fill();
+  } else {
+    ctx.fillRect(-rv.w*0.1, -rv.h*0.3, rv.w*0.2, rv.h*0.15);
+  }
+
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath(); ctx.arc(-rv.w*0.3, rv.h*0.45, rv.h*0.18, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(rv.w*0.3, rv.h*0.45, rv.h*0.18, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#475569';
+  ctx.beginPath(); ctx.arc(-rv.w*0.3, rv.h*0.45, rv.h*0.09, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(rv.w*0.3, rv.h*0.45, rv.h*0.09, 0, Math.PI*2); ctx.fill();
+
+  ctx.fillStyle = '#fef9c3';
+  ctx.beginPath(); ctx.arc(rv.w/2, 0, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = 'rgba(254,249,195,0.15)';
+  ctx.beginPath(); ctx.moveTo(rv.w/2, 0); ctx.arc(rv.w/2, 0, 30, -0.3, 0.3); ctx.fill();
+
+  ctx.restore();
+}
+
+function updateRoadVehicles(perVehicle) {
+  const VEHICLE_TYPES = {
+    car_gasoline:  { type:'car',  w:50, h:22, color:'#3b82f6' },
+    car_diesel:    { type:'car',  w:50, h:22, color:'#64748b' },
+    jeepney:       { type:'bus',  w:70, h:28, color:'#f59e0b' },
+    motorcycle:    { type:'moto', w:28, h:16, color:'#ef4444' },
+    tricycle:      { type:'moto', w:36, h:18, color:'#22c55e' },
+    big_bus:       { type:'bus',  w:90, h:34, color:'#8b5cf6' },
+    mini_bus:      { type:'bus',  w:65, h:26, color:'#06b6d4' },
+  };
+  const canvas = document.getElementById('roadCanvas');
+  const W = canvas.offsetWidth || 800;
+  const roadY = 160 * 0.65;
+
+  const maxCO2 = Math.max(...perVehicle.map(p => p.co2), 1);
+  roadVehicles = [];
+
+  perVehicle.forEach((pv, idx) => {
+    const cfg = VEHICLE_TYPES[pv.v.id] || { type:'car', w:50, h:22, color:'#94a3b8' };
+    const count = Math.min(pv.n, 6);
+    for (let i = 0; i < count; i++) {
+      roadVehicles.push({
+        ...cfg,
+        x: (W / (count+1)) * (i+1) + idx * 30,
+        speed: 1.5 + Math.random() * 1.5,
+        co2Rate: pv.co2 / maxCO2,
+      });
+    }
+  });
+}
+
+
+function buildDocsTable() {
+  const tbody = document.getElementById('docsDataTable');
+  const fuelColors = { Gasoline:'accent', Diesel:'yellow', Special:'red' };
+  tbody.innerHTML = VEHICLE_DATA.map(v => `
+    <tr>
+      <td>${v.emoji} ${v.name}</td>
+      <td class="${fuelColors[v.fuel] || ''}">${v.fuel}</td>
+      <td class="accent">${v.economy}</td>
+      <td>${v.co2L.toLocaleString()}</td>
+      <td>${v.pmL}</td>
+      <td>${v.coL}</td>
+      <td>${v.hcL}</td>
+      <td>${v.noxL}</td>
+      <td>${v.soxL}</td>
+      <td class="green">${v.co2km.toFixed(2)}</td>
+    </tr>
+  `).join('');
+}
+
+function buildChemicalGrid() {
+  const grid = document.getElementById('chemicalGrid');
+  grid.innerHTML = CHEMICALS.map(c => `
+    <div class="chemical-card">
+      <div class="chem-formula" style="color:${c.color}">${c.formula}</div>
+      <div class="chem-name">${c.name}</div>
+      <div class="chem-badge" style="background:${c.badgeColor};${c.badgeText}">${c.badge}</div>
+      <div class="chem-desc">${c.desc}</div>
+    </div>
+  `).join('');
+}
+
+function setTimePeriod(val, btn) {
+  state.timePeriod = val;
+  btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  calculate();
+}
+
+function setDistUnit(val, btn) {
+  state.distUnit = val;
+  btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  buildVehicleParams();
+  calculate();
+}
+
+function setEmUnit(val, btn) {
+  state.emUnit = val;
+  btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  calculate();
+}
+
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+window.addEventListener('load', () => {
+  init();
+  toggleVehicle('car_gasoline');
+  toggleVehicle('motorcycle');
+
+  window.addEventListener('resize', () => {
+    const canvas = document.getElementById('roadCanvas');
+    if (canvas) { canvas.width = canvas.offsetWidth; canvas.height = 160; }
+  });
+});
+</script>
+</body>
+</html>
